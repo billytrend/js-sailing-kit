@@ -49,6 +49,11 @@ Promise.all([sailLoad, hullLoad]).then(function(response) {
 	Promise.all([boat.animateBoat(90, 1), boat.animateSail(90, -2 )]);
 });
 
+var normaliseAngle = function(deg) {
+	if(deg < 0) deg +=360;
+	return Math.abs(deg % 360);
+};
+
 boat.setSail = function(deg) {
 	var curRotation = this.sail.rotation();
 	var nextRotation = curRotation + deg;

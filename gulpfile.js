@@ -6,9 +6,16 @@ var clean = require('gulp-clean');
 gulp.task(
 	'build',
 	function () {
-		gulp.src(['./src/sail.js', './src/area.html'], { read: false })
+		gulp.src('./src/sail.js', { read: false })
 			.pipe(browserify())
 			.pipe(gulp.dest('./pkg/'));
-});
+	});
 
-gulp.task('default', ['build']);
+gulp.task(
+	'html',
+	function(){
+		gulp.src(['./src/area.html', './src/*.png'])
+			.pipe(gulp.dest('./pkg/'));
+	});
+
+gulp.task('default', ['build', 'html']);

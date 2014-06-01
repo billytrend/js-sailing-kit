@@ -45,11 +45,14 @@ Promise.all([sailLoad, hullLoad]).then(function(response) {
 	boat.add(response[0]);
 	boatsLayer.add(boat);
 	sailingArea.add(boatsLayer);
+	// boat.animateBoat(100, 10);
+	boat.animateSail(90, 1);
 });
 
 boat.setSail = function(deg) {
 	var curRotation = this.sail.rotation();
-	if((curRotation < 0 && deg >= 0) || (curRotation > 0 && deg <= 0)) {
+	var nextRotation = curRotation + deg;
+	if((curRotation < 0 && nextRotation > 0) || (curRotation >= 0 && nextRotation <= 0)) {
 		this.flipSail();
 	}
 	this.sail.rotation(deg);
@@ -71,9 +74,10 @@ boat.flipSail = function() {
 };
 
 boat.animateSail = function(deg, speed) {
+	var absolutePos = this.sail.rotation() + deg;
 	this.sail.curAnimation = new kinetic.Animation(function(frame) {
 		var curRotation = this.sail.rotation();
-		if(curRotation == deg || curRotation > 90 || curRotation < -90) {
+		if(curRotation == absolutePos || curRotation >= 90 || curRotation <= -90) {
 			this.sail.curAnimation.stop();
 		} else {
 			this.setSail(curRotation + speed);
@@ -84,11 +88,14 @@ boat.animateSail = function(deg, speed) {
 };
 
 boat.animateBoat = function(deg, speed) {
+		var absolutePos = this.rotation() + deg;
 		this.curAnimation = new kinetic.Animation(function(frame) {
-		var curRotation = this.rotation();
-		this.setBoat(curRotation + speed);
-
-	}.bind(this));
+			var curRotation = this.rotation();
+			if(curRotation == absolutePos) {
+				this.curAnimation.stop();
+			}
+			this.setBoat(curRotation + speed);
+		}.bind(this));
 
 	this.curAnimation.start();
 };

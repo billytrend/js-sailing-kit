@@ -46,7 +46,7 @@ Promise.all([sailLoad, hullLoad]).then(function(response) {
 	boatsLayer.add(boat);
 	sailingArea.add(boatsLayer);
 	// boat.animateBoat(100, 10);
-	Promise.all([boat.animateBoat(90, 1), boat.animateSail(90, -2 )]);
+	Promise.all([boat.animateBoat(90, 1), boat.animateSail(-90, 1 )]);
 });
 
 var normaliseAngle = function(deg) {
@@ -55,19 +55,13 @@ var normaliseAngle = function(deg) {
 };
 
 boat.setSail = function(deg) {
-	var curRotation = this.sail.rotation();
-	var nextRotation = curRotation + deg;
-	if((curRotation < 0 && nextRotation > 0) || (curRotation >= 0 && nextRotation <= 0)) {
-		this.flipSail();
-	}
 	this.sail.rotation(deg);
+	this.checkSailSide();
 	this.parent.draw();
 };
 
 boat.setBoat = function(deg) {
-	var curRotation = this.rotation();
 	this.rotation(deg);
-	this.checkSailSide();
 	this.parent.draw();
 };
 
@@ -79,8 +73,8 @@ boat.flipSail = function() {
 boat.checkSailSide = function() {
 	var rot = this.sail.rotation();
 	var scale = this.sail.scale().x;
-	if(rot > 90 && rot <= 0 && scale == -1) this.flipSail();
-	if(rot > 90 && rot <= 0 && scale == 1) this.flipSail();
+	if(rot < 90 && rot >= 0 && scale == -1) this.flipSail();
+	if(rot > -90 && rot < 0 && scale == 1) this.flipSail();
 };
 
 boat.animateSail = function(deg, speed) {

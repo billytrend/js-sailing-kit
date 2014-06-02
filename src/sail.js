@@ -46,12 +46,16 @@ Promise.all([sailLoad, hullLoad]).then(function(response) {
 	boatsLayer.add(boat);
 	sailingArea.add(boatsLayer);
 	// boat.animateBoat(100, 10);
-	Promise.all([boat.animateBoat(90, 1), boat.animateSail(-90, 1 )]);
+	Promise.all([boat.animateMove(-90, 100 )]);
 });
 
 var normaliseAngle = function(deg) {
 	if(deg < 0) deg +=360;
 	return Math.abs(deg % 360);
+};
+
+var toRad = function(deg) {
+	return deg * Math.PI/180;
 };
 
 boat.setSail = function(deg) {
@@ -110,5 +114,34 @@ boat.animateBoat = function(deg, speed) {
 			}.bind(this));
 
 			this.curAnimation.start();
+	}.bind(this));
+};
+
+boat.setRelPos = function(x, y) {
+	this.move({ x: x, y: y});
+	this.parent.draw();
+};
+
+boat.moveOnTradjectory = function(deg, distance) {
+	deg = toRad(deg - 90);
+	var vector = {
+		x: distance * Math.cos(deg),
+		y: distance * Math.sin(deg)
+	};
+	this.setRelPos(vector.x, vector.y);
+};
+
+boat.animateMove = function(deg, distance) {
+	return new Promise(function(resolve, reject){
+		var travelled = 0;
+		this.movingAnimation = new kinetic.Animation(function(frame){
+			this.moveOnTradjectory(deg, 1);
+			console.log(travelled, distance)
+			if(++travelled == distance) {
+				this.movingAnimation.stop();
+			}
+		}.bind(this));
+
+		this.movingAnimation.start();
 	}.bind(this));
 };

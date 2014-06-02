@@ -46,7 +46,8 @@ Promise.all([sailLoad, hullLoad]).then(function(response) {
 	boatsLayer.add(boat);
 	sailingArea.add(boatsLayer);
 	// boat.animateBoat(100, 10);
-	Promise.all([boat.animateMove(-90, 100 )]);
+	boat.setBoat(100);
+	Promise.all([boat.goForward()]);
 });
 
 var normaliseAngle = function(deg) {
@@ -136,7 +137,6 @@ boat.animateMove = function(deg, distance) {
 		var travelled = 0;
 		this.movingAnimation = new kinetic.Animation(function(frame){
 			this.moveOnTradjectory(deg, 1);
-			console.log(travelled, distance)
 			if(++travelled == distance) {
 				this.movingAnimation.stop();
 			}
@@ -144,4 +144,9 @@ boat.animateMove = function(deg, distance) {
 
 		this.movingAnimation.start();
 	}.bind(this));
+};
+
+boat.goForward = function(){
+	var rot = this.rotation();
+	return this.animateMove(rot, 100);
 };

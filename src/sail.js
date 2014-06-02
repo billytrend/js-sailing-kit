@@ -46,7 +46,7 @@ Promise.all([sailLoad, hullLoad]).then(function(response) {
 	boatsLayer.add(boat);
 	sailingArea.add(boatsLayer);
 	boat.setSail(135);
-	Promise.all([boat.animateSail(60, -1)]);
+	Promise.all([boat.animateBoat(360, 1)]);
 });
 
 var testNormaliseAngle = function() {
@@ -119,7 +119,7 @@ boat.animateBoat = function(deg, speed) {
 			var absolutePos = this.rotation() + deg;
 			this.curAnimation = new kinetic.Animation(function(frame) {
 				var curRotation = this.rotation();
-				console.log(physics.getOptimumSailAngle(this));
+				this.setSail(physics.getOptimumSailAngle(this));
 				if(curRotation == absolutePos) {
 					this.curAnimation.stop();
 					resolve();
@@ -189,8 +189,8 @@ var physics = {};
 
 physics.getOptimumSailAngle = function(boat) {
 	var rot = normaliseAngle(boat.rotation());
-	if(rot < 180 && rot > 0) {
-		return rot/2;
+	if(rot >= 0 && rot < 180) {
+		return (180-rot)/2;
 	}
-	return -rot/2;
+	return (540-rot)/2;
 };

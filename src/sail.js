@@ -47,10 +47,9 @@ Promise.all([sailLoad, hullLoad]).then(function(response) {
 	boat.add(response[0]);
 	boatsLayer.add(boat);
 	sailingArea.add(boatsLayer);
-	boat.sail.turnTo = turner(boat.sail, 0, 180, boat.setSail.bind(boat));
-	boat.turnTo = turner(boat, 0, 360);
+	boat.sail.turnTo = turner(boat.sail, 0, 180, { rotateFn: boat.setSail.bind(boat) });
+	boat.turnTo = turner(boat, 0, 360, { callFns: [boat.setOptimumSailAngle.bind(boat)] });
 
-	Promise.all([boat.sail.turnTo(250, 1, 1)]);
 	document.getElementById('area').addEventListener('click', function(e) {
 		// console.log(e.clientX, e.clientY);
 		var abs = boat.getAbsolutePosition(),
@@ -59,7 +58,7 @@ Promise.all([sailLoad, hullLoad]).then(function(response) {
 
 			console.log(dx, dy);
 			console.log(boat)
-			Promise.all([boat.pointToCoord(dx, dy)]);
+			Promise.all([boat.pointToCoord(dx, dy), boat.goForward()]);
 
 	});
 });
@@ -150,7 +149,7 @@ boat.checkSailSide = function() {
 };
 
 
-var turner = function(target, low, high, rotateFn) {
+var turner = function(target, low, high, extras) {
 	return function(deg, speed, plusDirection) {
 			return new Promise(
 				function(resolve, reject) {
@@ -163,15 +162,10 @@ var turner = function(target, low, high, rotateFn) {
 					// find turn range
 					var range = high-low;
 
-					console.log(plusDirection)
-
 					if(plusDirection === undefined) {
 						// find whether to add angle or take away angle
-						console.log("hi")
 						plusDirection = angleDiffs(normaliseAngle(target.rotation(), range), deg, high-low)[0] > 0;
 					}
-
-					console.log(plusDirection)
 
 					target.turnAnim = new kinetic.Animation(function(frame) {
 
@@ -187,14 +181,19 @@ var turner = function(target, low, high, rotateFn) {
 							resolve();
 						}
 
-						if(rotateFn !== undefined) {
-							rotateFn(nextRotation);
+						if(extras.rotateFn !== undefined) {
+							extras.rotateFn(nextRotation);
 						} else {
 							// otherwhise perform turn and draw results to the parent
 							target.rotation(nextRotation);
-							target.parent.parent.draw();
+							target.parent.draw();
 						}
 
+						if(extras.callFns !== undefined) {
+							extras.callFns.forEach(function(e) {
+								e();
+							});
+						}
 
 					});
 
@@ -229,7 +228,7 @@ boat.animateMove = function(deg, distance) {
 	return new Promise(function(resolve, reject){
 		var travelled = 0;
 		this.movingAnimation = new kinetic.Animation(function(frame){
-			this.moveOnTradjectory(deg, 1);
+			this.moveOnTradjectory(this.rotation(), 1);
 			if(++travelled == distance) {
 				this.movingAnimation.stop();
 			}
@@ -241,7 +240,7 @@ boat.animateMove = function(deg, distance) {
 
 boat.goForward = function(){
 	var rot = this.rotation();
-	return this.animateMove(rot, 100);
+	return this.animateMove(rot, 1000);
 };
 
 boat.moveToCoord = function(x, y, steps) {
@@ -268,7 +267,7 @@ boat.moveToCoord = function(x, y, steps) {
 boat.pointToCoord = function(x, y) {
 	var angle = fromRad(Math.atan2(toRad(x), toRad(y)));
 	if(angle<0) angle += 360;
-	return fromRad(boat.turnTo(angle, 1));
+	return fromRad(boat.turnTo(angle, 10));
 };
 
 boat.setOptimumSailAngle = function() {

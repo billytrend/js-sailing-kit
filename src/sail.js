@@ -81,7 +81,7 @@ var fromRad = function(rad) {
 };
 
 var xIsInRange = function(x, a, b) {
-	return x >= a && x <= b;
+	return (x >= a && x <= b) || (x <= a && x >= b);
 };
 
 var angleDiffs = function (a, b) {
@@ -149,10 +149,16 @@ boat.animateBoat = function(deg, speed) {
 				this.curAnimation.stop();
 			}
 
+			var plusDirection = angleDiffs(this.getAbsoluteRotation(), deg)[0] > 0
+			
+			deg = normaliseAngle(deg);
+
 			this.curAnimation = new kinetic.Animation(function(frame) {
 
 				var curRotation = this.getAbsoluteRotation(),
-					nextRotation = curRotation + speed;
+					nextRotation = plusDirection ? curRotation + speed : curRotation - speed;
+
+				console.log(xIsInRange(deg, curRotation, nextRotation), deg, curRotation, nextRotation)
 
 				if(xIsInRange(deg, curRotation, nextRotation)) {
 					this.curAnimation.stop();

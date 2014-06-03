@@ -52,8 +52,8 @@ Promise.all([sailLoad, hullLoad]).then(function(response) {
 			dy = abs.y - e.clientY;
 
 			console.log(dx, dy);
-
-		Promise.all([boat.pointToCoord(dx, dy)]);
+			console.log(boat)
+			Promise.all([boat.pointToCoord(dx, dy)]);
 
 	});
 });
@@ -67,9 +67,9 @@ var testNormaliseAngle = function() {
 	console.log(i);
 };
 
-var normaliseAngle = function(deg) {
-	if(deg < 0) deg +=360;
-	return Math.abs(deg % 360);
+var normaliseAngle = function(deg, range) {
+	if(deg < 0) deg += range;
+	return Math.abs(deg % range);
 };
 
 var toRad = function(deg) {
@@ -84,10 +84,10 @@ var xIsInRange = function(x, a, b) {
 	return (x >= a && x <= b) || (x <= a && x >= b);
 };
 
-var angleDiffs = function (a, b) {
+var angleDiffs = function (a, b, range) {
 	var direction = a < b ? -1 : 1;
 	var inner = (b - a);
-	var outer = (direction * 360) + inner;
+	var outer = (direction * range) + inner;
 	return [inner, outer].sort(function(a, b) {
 		if(Math.abs(a) > Math.abs(b)) return 1;
 		else if(Math.abs(b) > Math.abs(a)) return -1;
@@ -96,7 +96,7 @@ var angleDiffs = function (a, b) {
 };
 
 boat.getAbsoluteRotation = function() {
-	return normaliseAngle(this.rotation());
+	return normaliseAngle(this.rotation(), 360);
 };
 
 boat.setSail = function(deg) {
@@ -142,34 +142,50 @@ boat.animateSail = function(deg, speed) {
 	);
 };
 
-boat.animateBoat = function(deg, speed) {
-	return new Promise(
-		function(resolve, reject){
-			if(this.curAnimation !== undefined && this.curAnimation.isRunning()) {
-				this.curAnimation.stop();
-			}
+var turner = function(target, low, high) {
+	return function(deg, speed) {
+			return new Promise(
+				function(resolve, reject) {
 
-			var plusDirection = angleDiffs(this.getAbsoluteRotation(), deg)[0] > 0
-			
-			deg = normaliseAngle(deg);
+					// stop current turning
+					if(target.turnAnim !== undefined && target.turnAnim.isRunning()) {
+						target.turnAnim.stop();
+					}
 
-			this.curAnimation = new kinetic.Animation(function(frame) {
+					// find turn range
+					var range = high-low;
 
-				var curRotation = this.getAbsoluteRotation(),
-					nextRotation = plusDirection ? curRotation + speed : curRotation - speed;
+					// find whether to add angle or take away angle
+					var plusDirection = angleDiffs(target.getAbsoluteRotation(), deg, high-low)[0] > 0;
 
-				console.log(xIsInRange(deg, curRotation, nextRotation), deg, curRotation, nextRotation)
 
-				if(xIsInRange(deg, curRotation, nextRotation)) {
-					this.curAnimation.stop();
-					resolve();
+					target.turnAnim = new kinetic.Animation(function(frame) {
+
+						// find this frames rotation
+						var curRotation = normaliseAngle(target.rotation(), range),
+							delta = plusDirection ? speed : -speed,
+							nextRotation = normaliseAngle(curRotation + delta, range);
+
+						// stop if reached target 
+						if(xIsInRange(deg, curRotation, nextRotation) && curRotation + delta == nextRotation) {
+							target.turnAnim.stop();
+							resolve();
+						}
+
+						// otherwhise perform turn and draw results to the parent
+						target.rotation(nextRotation);
+						target.parent.draw();
+
+					});
+
+					// start turning!
+					target.turnAnim.start();
 				}
-				this.setBoat(nextRotation);
-			}.bind(this));
+			);
+		};
+	};
 
-			this.curAnimation.start();
-	}.bind(this));
-};
+boat.turnTo = turner(boat, 0, 360);
 
 boat.setRelPos = function(x, y) {
 	this.move({ x: x, y: y});
@@ -233,7 +249,7 @@ boat.moveToCoord = function(x, y, steps) {
 boat.pointToCoord = function(x, y) {
 	var angle = fromRad(Math.atan2(toRad(x), toRad(y)));
 	if(angle<0) angle += 360;
-	return fromRad(boat.animateBoat(angle, 1));
+	return fromRad(boat.turnTo(angle, 1));
 };
 
 boat.setOptimumSailAngle = function() {

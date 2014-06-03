@@ -13,6 +13,8 @@ var boatsLayer = new kinetic.Layer({
 
 var boat = new kinetic.Group();
 
+boat.sail = {};
+
 var hullImage = new Image(),
 	sailImage = new Image();
 
@@ -45,6 +47,10 @@ Promise.all([sailLoad, hullLoad]).then(function(response) {
 	boat.add(response[0]);
 	boatsLayer.add(boat);
 	sailingArea.add(boatsLayer);
+	boat.sail.turnTo = turner(boat.sail, 0, 180, boat.setSail.bind(boat));
+	boat.turnTo = turner(boat, 0, 360);
+
+	Promise.all([boat.sail.turnTo(250, 1, 1)]);
 	document.getElementById('area').addEventListener('click', function(e) {
 		// console.log(e.clientX, e.clientY);
 		var abs = boat.getAbsolutePosition(),
@@ -57,6 +63,27 @@ Promise.all([sailLoad, hullLoad]).then(function(response) {
 
 	});
 });
+
+
+boat.animateSail = function(deg, speed) {
+	return new Promise(
+		function(resolve, reject){
+			var absolutePos = this.sail.rotation() + deg;
+			this.sail.curAnimation = new kinetic.Animation(function(frame) {
+				var curRotation = this.sail.rotation(),
+					nextRotation = curRotation + speed;
+				if(xIsInRange(absolutePos, toRad(curRotation), toRad(nextRotation)) || curRotation >= 180 || curRotation <= 0) {
+					this.sail.curAnimation.stop();
+					resolve();
+				} else {
+					this.setSail(nextRotation);
+				}
+			}.bind(this));
+
+			this.sail.curAnimation.start();
+		}.bind(this)
+	);
+};
 
 var testNormaliseAngle = function() {
 	var i = -12345;
@@ -122,28 +149,9 @@ boat.checkSailSide = function() {
 	if(rot <=180 && rot > 90 && scale == 1) this.flipSail();
 };
 
-boat.animateSail = function(deg, speed) {
-	return new Promise(
-		function(resolve, reject){
-			var absolutePos = this.sail.rotation() + deg;
-			this.sail.curAnimation = new kinetic.Animation(function(frame) {
-				var curRotation = this.sail.rotation(),
-					nextRotation = curRotation + speed;
-				if(xIsInRange(absolutePos, toRad(curRotation), toRad(nextRotation)) || curRotation >= 180 || curRotation <= 0) {
-					this.sail.curAnimation.stop();
-					resolve();
-				} else {
-					this.setSail(nextRotation);
-				}
-			}.bind(this));
 
-			this.sail.curAnimation.start();
-		}.bind(this)
-	);
-};
-
-var turner = function(target, low, high) {
-	return function(deg, speed) {
+var turner = function(target, low, high, rotateFn) {
+	return function(deg, speed, plusDirection) {
 			return new Promise(
 				function(resolve, reject) {
 
@@ -155,26 +163,38 @@ var turner = function(target, low, high) {
 					// find turn range
 					var range = high-low;
 
-					// find whether to add angle or take away angle
-					var plusDirection = angleDiffs(target.getAbsoluteRotation(), deg, high-low)[0] > 0;
+					console.log(plusDirection)
 
+					if(plusDirection === undefined) {
+						// find whether to add angle or take away angle
+						console.log("hi")
+						plusDirection = angleDiffs(normaliseAngle(target.rotation(), range), deg, high-low)[0] > 0;
+					}
+
+					console.log(plusDirection)
 
 					target.turnAnim = new kinetic.Animation(function(frame) {
 
 						// find this frames rotation
 						var curRotation = normaliseAngle(target.rotation(), range),
 							delta = plusDirection ? speed : -speed,
-							nextRotation = normaliseAngle(curRotation + delta, range);
+							nextRotation = normaliseAngle(curRotation + delta, range),
+							normDeg = normaliseAngle(deg, range);
 
 						// stop if reached target 
-						if(xIsInRange(deg, curRotation, nextRotation) && curRotation + delta == nextRotation) {
+						if(xIsInRange(normDeg, curRotation, nextRotation) && curRotation + delta == nextRotation) {
 							target.turnAnim.stop();
 							resolve();
 						}
 
-						// otherwhise perform turn and draw results to the parent
-						target.rotation(nextRotation);
-						target.parent.draw();
+						if(rotateFn !== undefined) {
+							rotateFn(nextRotation);
+						} else {
+							// otherwhise perform turn and draw results to the parent
+							target.rotation(nextRotation);
+							target.parent.parent.draw();
+						}
+
 
 					});
 
@@ -185,7 +205,6 @@ var turner = function(target, low, high) {
 		};
 	};
 
-boat.turnTo = turner(boat, 0, 360);
 
 boat.setRelPos = function(x, y) {
 	this.move({ x: x, y: y});

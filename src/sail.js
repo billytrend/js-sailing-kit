@@ -47,20 +47,26 @@ Promise.all([sailLoad, hullLoad]).then(function(response) {
 	boat.add(response[0]);
 	boatsLayer.add(boat);
 	sailingArea.add(boatsLayer);
+
 	boat.sail.turnTo = turner(boat.sail, 0, 180, { rotateFn: boat.setSail.bind(boat) });
 	boat.turnTo = turner(boat, 0, 360, { callFns: [boat.setOptimumSailAngle.bind(boat)] });
+	boat.moveWithVector = mover({ target: boat });
 
-	document.getElementById('area').addEventListener('click', function(e) {
-		// console.log(e.clientX, e.clientY);
-		var abs = boat.getAbsolutePosition(),
-			dx = e.clientX - abs.x,
-			dy = abs.y - e.clientY;
+	var vect = new UnitVector({ x: 100, y: 100});
 
-			console.log(dx, dy);
-			console.log(boat)
-			Promise.all([boat.pointToCoord(dx, dy), boat.goForward()]);
+	Promise.all([boat.moveWithVector(vect)]);
 
-	});
+	// document.getElementById('area').addEventListener('click', function(e) {
+	// 	// console.log(e.clientX, e.clientY);
+	// 	var abs = boat.getAbsolutePosition(),
+	// 		dx = e.clientX - abs.x,
+	// 		dy = abs.y - e.clientY;
+
+	// 		console.log(dx, dy);
+	// 		console.log(boat)
+	// 		Promise.all([boat.pointToCoord(dx, dy), boat.moveToCoord(function() {})]);
+
+	// });
 });
 
 
@@ -119,10 +125,6 @@ var angleDiffs = function (a, b, range) {
 		else if(Math.abs(b) > Math.abs(a)) return -1;
 		return 0;
 	});
-};
-
-boat.getAbsoluteRotation = function() {
-	return normaliseAngle(this.rotation(), 360);
 };
 
 boat.setSail = function(deg) {
@@ -205,6 +207,79 @@ var turner = function(target, low, high, extras) {
 	};
 
 
+
+var UnitVector = function(metrics) {
+	this.x = metrics.x;
+	this.y = metrics.x;
+	this.deg = metrics.deg;
+	this.dist = metrics.dist;
+
+	if(this.x !== undefined || this.y !== undefined) {
+		this.angle = this.getAngleFromCoord(this.x, this.y);
+		this.dist = Math.sqrt(this.x * this.x + this.y * this.y);
+	} else if(this.deg !== undefined) {
+		var coords = this.getCoordFromAngle(this.deg, this.dist);
+		this.x = coords.x;
+		this.y = coords.y;
+	} else {
+		console.log("Not enough info!!");
+	}
+
+};
+
+UnitVector.prototype.getUnit = function(){
+	return {
+		x: this.x / this.dist,
+		y: this.y / this.dist
+	};
+};
+
+UnitVector.prototype.getCoordFromAngle = function(deg, distance) {
+	deg = toRad(deg - 90);
+	return {
+		x: distance * Math.cos(deg),
+		y: distance * Math.sin(deg)
+	};
+};
+
+UnitVector.prototype.getAngleFromCoord = function(x, y) {
+	var angle = fromRad(Math.atan2(toRad(x), toRad(y)));
+	if(angle<0) angle += 360;
+	return angle;
+};
+
+var mover = function(defaults) {
+	return function(vector) {
+		return new Promise(function(resolve, reject) {
+
+			// cancel any currently running animation on the target
+			if(defaults.target.moveAnim !== undefined && defaults.target.moveAnim.isRunning()) {
+				defaults.target.moveAnim.stop();
+			}
+
+			// get unit vector and distance travelled
+			var unitVector = vector.getUnit()
+			var travelled = 0;
+
+			defaults.target.moveAnim = new kinetic.Animation(function(frame) {
+
+				// check the distance hasn't been travelled
+				if(xIsInRange(vector.dist, travelled, ++travelled)) {
+					defaults.target.moveAnim.stop();
+					resolve();
+				}
+
+				// move and draw the target by the unitVector 
+				defaults.target.move(unitVector);
+				defaults.target.parent.draw();
+
+			});
+
+			defaults.target.moveAnim.start();
+		});
+	};
+};
+
 boat.setRelPos = function(x, y) {
 	this.move({ x: x, y: y});
 	this.parent.draw();
@@ -240,29 +315,9 @@ boat.animateMove = function(deg, distance) {
 
 boat.goForward = function(){
 	var rot = this.rotation();
-	return this.animateMove(rot, 1000);
+	return this.animateMove(rot, 2000);
 };
 
-boat.moveToCoord = function(x, y, steps) {
-	var dX = x/steps,
-		dY = y/steps;
-	return new Promise(function(resolve, reject){
-		var travelled = 0;
-		if(this.movingAnimation !== undefined && this.movingAnimation.isRunning()) {
-			this.movingAnimation.stop();
-		}
-
-		this.movingAnimation = new kinetic.Animation(function(frame){
-			this.setRelPos(dX * ++travelled, dY * travelled);
-			if(travelled > 100) {
-				this.movingAnimation.stop();
-				resolve();
-			}
-		}.bind(this));
-
-		this.movingAnimation.start();
-	}.bind(this));
-};
 
 boat.pointToCoord = function(x, y) {
 	var angle = fromRad(Math.atan2(toRad(x), toRad(y)));
@@ -278,3 +333,4 @@ boat.setOptimumSailAngle = function() {
 		this.setSail((540-rot)/2);
 	}
 };
+

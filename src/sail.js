@@ -45,8 +45,17 @@ Promise.all([sailLoad, hullLoad]).then(function(response) {
 	boat.add(response[0]);
 	boatsLayer.add(boat);
 	sailingArea.add(boatsLayer);
-	boat.setSail(135);
-	Promise.all([boat.animateBoat(360, 1)]);
+	document.getElementById('area').addEventListener('click', function(e) {
+		// console.log(e.clientX, e.clientY);
+		var abs = boat.getAbsolutePosition(),
+			dx = e.clientX - abs.x,
+			dy = abs.y - e.clientY;
+
+			console.log(dx, dy);
+
+		Promise.all([boat.pointToCoord(dx, dy)]);
+
+	});
 });
 
 var testNormaliseAngle = function() {
@@ -65,6 +74,14 @@ var normaliseAngle = function(deg) {
 
 var toRad = function(deg) {
 	return deg * Math.PI/180;
+};
+
+var fromRad = function(rad) {
+	return rad / (Math.PI/180);
+};
+
+var xIsInRange = function(x, a, b) {
+	return x >= a && x <= b;
 };
 
 boat.getAbsoluteRotation = function() {
@@ -99,12 +116,13 @@ boat.animateSail = function(deg, speed) {
 		function(resolve, reject){
 			var absolutePos = this.sail.rotation() + deg;
 			this.sail.curAnimation = new kinetic.Animation(function(frame) {
-				var curRotation = this.sail.rotation();
-				if(curRotation == absolutePos || curRotation >= 180 || curRotation <= 0) {
+				var curRotation = this.sail.rotation(),
+					nextRotation = curRotation + speed;
+				if(xIsInRange(absolutePos, toRad(curRotation), toRad(nextRotation)) || curRotation >= 180 || curRotation <= 0) {
 					this.sail.curAnimation.stop();
 					resolve();
 				} else {
-					this.setSail(curRotation + speed);
+					this.setSail(nextRotation);
 				}
 			}.bind(this));
 
@@ -116,15 +134,20 @@ boat.animateSail = function(deg, speed) {
 boat.animateBoat = function(deg, speed) {
 	return new Promise(
 		function(resolve, reject){
-			var absolutePos = this.rotation() + deg;
+			if(this.curAnimation !== undefined && this.curAnimation.isRunning()) {
+				this.curAnimation.stop();
+			}
+
 			this.curAnimation = new kinetic.Animation(function(frame) {
-				var curRotation = this.rotation();
-				this.setSail(physics.getOptimumSailAngle(this));
-				if(curRotation == absolutePos) {
+
+				var curRotation = this.getAbsoluteRotation(),
+					nextRotation = curRotation + speed;
+				console.log(deg, curRotation, nextRotation)
+				if(xIsInRange(deg, curRotation, nextRotation)) {
 					this.curAnimation.stop();
 					resolve();
 				}
-				this.setBoat(curRotation + speed);
+				this.setBoat(nextRotation);
 			}.bind(this));
 
 			this.curAnimation.start();
@@ -133,6 +156,11 @@ boat.animateBoat = function(deg, speed) {
 
 boat.setRelPos = function(x, y) {
 	this.move({ x: x, y: y});
+	this.parent.draw();
+};
+
+boat.setAbsPos = function(x, y) {
+	this.position({ x: x, y: y});
 	this.parent.draw();
 };
 
@@ -185,12 +213,18 @@ boat.moveToCoord = function(x, y, steps) {
 	}.bind(this));
 };
 
-var physics = {};
-
-physics.getOptimumSailAngle = function(boat) {
-	var rot = normaliseAngle(boat.rotation());
-	if(rot >= 0 && rot < 180) {
-		return (180-rot)/2;
-	}
-	return (540-rot)/2;
+boat.pointToCoord = function(x, y) {
+	var angle = fromRad(Math.atan2(toRad(x), toRad(y)));
+	if(angle<0) angle += 360;
+	return fromRad(boat.animateBoat(angle, 1));
 };
+
+boat.setOptimumSailAngle = function() {
+	var rot = this.getAbsoluteRotation();
+	if(rot >= 0 && rot < 180) {
+		this.setSail((180-rot)/2);
+	} else {
+		this.setSail((540-rot)/2);
+	}
+};
+

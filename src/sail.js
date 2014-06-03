@@ -84,6 +84,17 @@ var xIsInRange = function(x, a, b) {
 	return x >= a && x <= b;
 };
 
+var angleDiffs = function (a, b) {
+	var direction = a < b ? -1 : 1;
+	var inner = (b - a);
+	var outer = (direction * 360) + inner;
+	return [inner, outer].sort(function(a, b) {
+		if(Math.abs(a) > Math.abs(b)) return 1;
+		else if(Math.abs(b) > Math.abs(a)) return -1;
+		return 0;
+	});
+};
+
 boat.getAbsoluteRotation = function() {
 	return normaliseAngle(this.rotation());
 };
@@ -142,7 +153,7 @@ boat.animateBoat = function(deg, speed) {
 
 				var curRotation = this.getAbsoluteRotation(),
 					nextRotation = curRotation + speed;
-				console.log(deg, curRotation, nextRotation)
+
 				if(xIsInRange(deg, curRotation, nextRotation)) {
 					this.curAnimation.stop();
 					resolve();
@@ -227,4 +238,3 @@ boat.setOptimumSailAngle = function() {
 		this.setSail((540-rot)/2);
 	}
 };
-

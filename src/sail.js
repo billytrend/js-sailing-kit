@@ -51,7 +51,6 @@ Boat.prototype.getRepresentation = function() {
 	return this.representation;
 };
 
-Boat.prototype.moveBoat = undefined;
 
 var mover = function(defaults) {
 	var getCoordFromAngle = function(deg, distance) {
@@ -73,12 +72,14 @@ var mover = function(defaults) {
 	return function(options) {
 		return new Promise(function(resolve, reject) {
 
+
 			// check if coordinates need calculating
-			if(areUndefined([this.x, this.y] && !isUndefined(options.angle))) {
-				var coords = getCoordFromAngle(this);
-				this.x = coords.x;
-				this.y = coords.y;
+			if(areUndefined([options.x, options.y]) && !areUndefined([options.angle, options.distance])) {
+				var coords = getCoordFromAngle(options.angle, options.distance);
+				options.x = coords.x;
+				options.y = coords.y;
 			}
+
 
 			// sets speed to default if undefined
 			if(isUndefined(options.speed)) {
@@ -86,35 +87,41 @@ var mover = function(defaults) {
 			}
 
 			if(isUndefined(options.distance)) {
-				options.distance = pythagorous(this.x, this.y);
+				options.distance = pythagorous(options.x, options.y);
 			}
 
-			if(areUndefined([this.x, this.y])) {
+			console.log(options.distance);
+
+			if(!areUndefined([options.x, options.y])) {
+				console.log('bi')
 				// cancel any currently running animation on the target
-				if(defaults.target.moveAnim !== undefined && defaults.target.moveAnim.isRunning()) {
-					defaults.target.moveAnim.stop();
+				if(this.moveAnim !== undefined && this.moveAnim.isRunning()) {
+					this.moveAnim.stop();
 				}
 
-				defaults.target.moveAnim = new kinetic.Animation(function(frame) {
+				var travelled = 0;
 
+				this.moveAnim = new kinetic.Animation(function(frame) {
+					
 					// check the distance hasn't been travelled
-					if(xIsInRange(vector.dist, travelled, ++travelled)) {
-						defaults.target.moveAnim.stop();
+					if(xIsInRange(options.distance, travelled, travelled += options.speed)) {
+						this.moveAnim.stop();
 						resolve();
 					}
 
 					// move and draw the target by the unitVector 
-					defaults.target.move(unitVector);
-					defaults.target.parent.draw();
+					this.getRepresentation().move({ x: options.x, y: options.y });
 
-				});
+					this.getRepresentation().parent.draw();
 
-
+				}.bind(this));
+				this.moveAnim.start();
 			}
-			defaults.target.moveAnim.start();
-		});
+		}.bind(this));
 	};
 };
+
+Boat.prototype.moveBoat = mover({});
 
 function options() {
 	this.x;
@@ -281,7 +288,7 @@ Promise.all([boat.loadAssets()]).then(function(response) {
 	boatsLayer.add(boat.getRepresentation());
 	sailingArea.add(boatsLayer);
 
-	Promise.all([ boat.turnBoat({ x : 10, y: 10 }) ]).then(function() {
+	Promise.all([ boat.moveBoat({ x : 10, y: 10 }) ]).then(function() {
 		console.log("working");
 	}).catch(function(a) {
 		console.log(a.message)
@@ -292,8 +299,6 @@ Promise.all([boat.loadAssets()]).then(function(response) {
 		var abs = boat.getRepresentation().getAbsolutePosition(),
 			dx = e.clientX - abs.x,
 			dy = abs.y - e.clientY;
-
-
 
 		Promise.all([boat.turnBoat({ x : dx, y: dy})]);
 

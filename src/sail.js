@@ -66,7 +66,7 @@ var mover = function(defaults) {
 	};
 
 	var pythagorous = function(x, y) {
-		return Math.sqrt(x*x, y*y); 
+		return Math.sqrt(x*x + y*y); 
 	};
 
 	return function(options) {
@@ -90,10 +90,9 @@ var mover = function(defaults) {
 				options.distance = pythagorous(options.x, options.y);
 			}
 
-			console.log(options.distance);
+			console.log(options.x, options.y, options.distance);
 
 			if(!areUndefined([options.x, options.y])) {
-				console.log('bi')
 				// cancel any currently running animation on the target
 				if(this.moveAnim !== undefined && this.moveAnim.isRunning()) {
 					this.moveAnim.stop();
@@ -102,17 +101,25 @@ var mover = function(defaults) {
 				var travelled = 0;
 
 				this.moveAnim = new kinetic.Animation(function(frame) {
-					
+
 					// check the distance hasn't been travelled
 					if(xIsInRange(options.distance, travelled, travelled += options.speed)) {
+						console.log(options.distance, travelled, travelled += options.speed)
 						this.moveAnim.stop();
 						resolve();
 					}
 
 					// move and draw the target by the unitVector 
-					this.getRepresentation().move({ x: options.x, y: options.y });
+					this.getRepresentation().move({ x: (options.x*options.speed)/options.distance, y: -(options.y*options.speed)/options.distance });
 
 					this.getRepresentation().parent.draw();
+
+					if(!isUndefined(options.dependantFns)){
+						options.dependantFns.forEach(function(fn) {
+							console.log(fn)
+							fn();
+						});
+					}
 
 				}.bind(this));
 				this.moveAnim.start();
@@ -134,6 +141,7 @@ function options() {
 }
 
 var turner = function(low, high, extras) {
+
 	var toRad = function(deg) {
 		return deg * Math.PI/180;
 	};
@@ -226,6 +234,13 @@ var turner = function(low, high, extras) {
 							this.getRepresentation().rotation(nextRotation);
 							this.getRepresentation().parent.draw();
 
+							if(!isUndefined(options.dependantFns)){
+								options.dependantFns.forEach(function(fn) {
+									console.log(fn)
+									fn();
+								});
+							}
+
 						}.bind(this)
 					);
 
@@ -276,23 +291,17 @@ var sailingArea = new kinetic.Stage({
 });
 
 var boatsLayer = new kinetic.Layer({
-	x: 100,
+	x: 100, 
 	y: 100
 });
 
 var boat = new Boat();
 
-
 Promise.all([boat.loadAssets()]).then(function(response) {
 
+	alert();
 	boatsLayer.add(boat.getRepresentation());
 	sailingArea.add(boatsLayer);
-
-	Promise.all([ boat.moveBoat({ x : 10, y: 10 }) ]).then(function() {
-		console.log("working");
-	}).catch(function(a) {
-		console.log(a.message)
-	});
 
 	document.getElementById('area').addEventListener('click', function(e) {
 
@@ -300,7 +309,12 @@ Promise.all([boat.loadAssets()]).then(function(response) {
 			dx = e.clientX - abs.x,
 			dy = abs.y - e.clientY;
 
-		Promise.all([boat.turnBoat({ x : dx, y: dy})]);
+		Promise.all([ boat.moveBoat({ x : dx, y: dy, speed: 3 }), boat.turnBoat( { x: dx, y: dy, speed: 10} ) ]).then(function() {
+			console.log("working");
+		}).catch(function(a) {
+			console.log(a.message)
+		});
+
 
 	});
 });

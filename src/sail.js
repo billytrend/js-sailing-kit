@@ -1,3 +1,265 @@
+
+var Boat = function() {
+
+	// images 
+	this.representation = new kinetic.Group();
+	this.hullImage = new Image();
+	this.sailImage = new Image();
+	// image assets to be loaded
+	// START HERE!! 
+	this.loadPromises = [
+		new Promise(function(resolve, reject) {
+			this.hullImage.onload = function() {
+				this.hull = new kinetic.Image({
+					image: this.hullImage,
+					offsetX: 19,
+					offsetY: 27
+				});
+				resolve(this.hull);
+			}.bind(this);
+			this.hullImage.src = './hull.png';
+
+		}.bind(this)),
+
+		new Promise(function(resolve, reject) {
+			this.sailImage.onload = function() {
+				this.sail = new kinetic.Image({
+					image: this.sailImage,
+					offsetY: 10
+				});
+				resolve(this.sail);
+			}.bind(this);
+			this.sailImage.src = './main.png';
+		}.bind(this))
+	];
+
+};
+
+Boat.prototype.loadAssets = function() {
+	return new Promise(function(resolve, reject){
+		Promise.all(this.loadPromises).then(function(loaded) {
+			loaded.forEach(function(element) {
+				this.getRepresentation().add(element);
+			}.bind(this));
+			resolve(this);
+		}.bind(this));
+	}.bind(this));
+};
+
+
+Boat.prototype.getRepresentation = function() {
+	return this.representation;
+};
+
+Boat.prototype.moveBoat = undefined;
+
+var mover = function(defaults) {
+	var getCoordFromAngle = function(deg, distance) {
+		deg = toRad(deg - 90);
+		return {
+			x: distance * Math.cos(deg),
+			y: distance * Math.sin(deg)
+		};
+	};
+
+	var xIsInRange = function(x, a, b) {
+		return (x >= a && x <= b) || (x <= a && x >= b);
+	};
+
+	var pythagorous = function(x, y) {
+		return Math.sqrt(x*x, y*y); 
+	};
+
+	return function(options) {
+		return new Promise(function(resolve, reject) {
+
+			// check if coordinates need calculating
+			if(areUndefined([this.x, this.y] && !isUndefined(options.angle))) {
+				var coords = getCoordFromAngle(this);
+				this.x = coords.x;
+				this.y = coords.y;
+			}
+
+			// sets speed to default if undefined
+			if(isUndefined(options.speed)) {
+				options.speed = 1;
+			}
+
+			if(isUndefined(options.distance)) {
+				options.distance = pythagorous(this.x, this.y);
+			}
+
+			if(areUndefined([this.x, this.y])) {
+				// cancel any currently running animation on the target
+				if(defaults.target.moveAnim !== undefined && defaults.target.moveAnim.isRunning()) {
+					defaults.target.moveAnim.stop();
+				}
+
+				defaults.target.moveAnim = new kinetic.Animation(function(frame) {
+
+					// check the distance hasn't been travelled
+					if(xIsInRange(vector.dist, travelled, ++travelled)) {
+						defaults.target.moveAnim.stop();
+						resolve();
+					}
+
+					// move and draw the target by the unitVector 
+					defaults.target.move(unitVector);
+					defaults.target.parent.draw();
+
+				});
+
+
+			}
+			defaults.target.moveAnim.start();
+		});
+	};
+};
+
+function options() {
+	this.x;
+	this.y;
+
+	this.angle;
+	this.distance;
+
+	this.speed;
+}
+
+var turner = function(low, high, extras) {
+	var toRad = function(deg) {
+		return deg * Math.PI/180;
+	};
+
+	var fromRad = function(rad) {
+		return rad / (Math.PI/180);
+	};
+
+
+	var getAngleFromCoord = function(x, y) {
+		var angle = fromRad(Math.atan2(toRad(x), toRad(y)));
+		if(angle<0) angle += 360;
+		return angle;
+	};
+
+	var angleDiffs = function (a, b, range) {
+		var direction = a < b ? -1 : 1;
+		var inner = (b - a);
+		var outer = (direction * range) + inner;
+		return [inner, outer].sort(function(a, b) {
+			if(Math.abs(a) > Math.abs(b)) return 1;
+			else if(Math.abs(b) > Math.abs(a)) return -1;
+			return 0;
+		});
+	};
+
+	var normaliseAngle = function(deg, range) {
+		if(deg < 0) deg += range;
+		return Math.abs(deg % range);
+	};
+
+	var xIsInRange = function(x, a, b) {
+		return (x >= a && x <= b) || (x <= a && x >= b);
+	};
+
+
+	return function(options) {
+
+			return new Promise(
+				function(resolve, reject) {
+
+					// find turn range
+					var range = high-low;
+
+					// check whether angle should be calculated
+					if(isUndefined(options.angle) && !areUndefined([options.x, options.y])) {
+						options.angle = getAngleFromCoord(options.x, options.y);
+					}
+
+					// check whether direction should be detected
+					if(isUndefined(options.turnClockwise)) {
+						options.turnClockwise = angleDiffs(normaliseAngle(this.getRepresentation().rotation(), range), options.angle, range)[0] > 0;
+					}
+
+					// check whether an angle delta has been input
+					if (isUndefined(options.angleDelta)) {
+						options.angle = this.getRepresentation().rotation() + options.turnClockwise ? options.angle : -options.angle;
+					}
+
+					// check if speed should be set to default
+					if(isUndefined(options.speed)) {
+						options.speed = 1;
+					}
+
+
+					if(!isUndefined(options.angle)){
+
+						// stop current turning
+						if(!isUndefined(this.turnAnim) && this.turnAnim.isRunning()) {
+							this.turnAnim.stop();
+						}
+
+
+						this.turnAnim = new kinetic.Animation(function(frame) {
+
+							// find this frames rotation
+							var curRotation = normaliseAngle(this.getRepresentation().rotation(), range),
+								delta = options.turnClockwise ? options.speed : - options.speed,
+								nextRotation = normaliseAngle(curRotation + delta, range),
+								normDeg = normaliseAngle(options.angle, range);
+
+							// stop if reached this 
+							if(xIsInRange(normDeg, curRotation, nextRotation) && curRotation + delta == nextRotation) {
+								this.turnAnim.stop();
+								resolve();
+							}
+							console.log("hi")
+
+							// otherwhise perform turn and draw results to the parent
+							this.getRepresentation().rotation(nextRotation);
+							this.getRepresentation().parent.draw();
+
+						}.bind(this)
+					);
+
+					// start turning!
+					this.turnAnim.start();
+				}
+
+				else {
+					console.log("Not enough inputs.");
+				}
+			}.bind(this)
+		);
+	};
+};
+
+
+Boat.prototype.turnBoat = turner(0, 360, {});
+
+Boat.prototype.setSail = turner(this.sail, 0, 180, {});
+
+// deg, speed, turnClockwise
+
+
+
+var isUndefined = function(variable) {
+	return typeof(variable) == 'undefined';
+};
+
+var areUndefined = function(array) {
+	return array.reduce(function(previous, current) {
+		return previous && isUndefined(current);
+	}, true);
+};
+
+var hasUndefined = function(array) {
+	return array.reduce(function(previous, current) {
+		return previous || isUndefined(current);
+	}, false);
+};
+
+
 var kinetic = require('./lib/kinetic-v5.0.1.min.js');
 
 var sailingArea = new kinetic.Stage({
@@ -11,326 +273,29 @@ var boatsLayer = new kinetic.Layer({
 	y: 100
 });
 
-var boat = new kinetic.Group();
+var boat = new Boat();
 
-boat.sail = {};
 
-var hullImage = new Image(),
-	sailImage = new Image();
+Promise.all([boat.loadAssets()]).then(function(response) {
 
-var hullLoad = new Promise(function(resolve, reject) {
-	hullImage.onload = function() {
-		boat.hull = new kinetic.Image({
-			image: hullImage,
-			offsetX: 19,
-			offsetY: 27
-		});
-		resolve(boat.hull);
-	};
-});
-
-var sailLoad = new Promise(function(resolve, reject) {
-	sailImage.onload = function() {
-		boat.sail = new kinetic.Image({
-			image: sailImage,
-			offsetY: 10
-		});
-		resolve(boat.sail);
-	};
-});
-
-hullImage.src = './hull.png';
-sailImage.src = './main.png';
-
-Promise.all([sailLoad, hullLoad]).then(function(response) {
-	boat.add(response[1]);
-	boat.add(response[0]);
-	boatsLayer.add(boat);
+	boatsLayer.add(boat.getRepresentation());
 	sailingArea.add(boatsLayer);
 
-	boat.sail.turnTo = turner(boat.sail, 0, 180, { rotateFn: boat.setSail.bind(boat) });
-	boat.turnTo = turner(boat, 0, 360, { callFns: [boat.setOptimumSailAngle.bind(boat)] });
-	boat.moveWithVector = mover({ target: boat });
-
-	var vect = new UnitVector({ x: 100, y: 100});
-
-	Promise.all([boat.moveWithVector(vect)]);
-
-	// document.getElementById('area').addEventListener('click', function(e) {
-	// 	// console.log(e.clientX, e.clientY);
-	// 	var abs = boat.getAbsolutePosition(),
-	// 		dx = e.clientX - abs.x,
-	// 		dy = abs.y - e.clientY;
-
-	// 		console.log(dx, dy);
-	// 		console.log(boat)
-	// 		Promise.all([boat.pointToCoord(dx, dy), boat.moveToCoord(function() {})]);
-
-	// });
-});
-
-
-boat.animateSail = function(deg, speed) {
-	return new Promise(
-		function(resolve, reject){
-			var absolutePos = this.sail.rotation() + deg;
-			this.sail.curAnimation = new kinetic.Animation(function(frame) {
-				var curRotation = this.sail.rotation(),
-					nextRotation = curRotation + speed;
-				if(xIsInRange(absolutePos, toRad(curRotation), toRad(nextRotation)) || curRotation >= 180 || curRotation <= 0) {
-					this.sail.curAnimation.stop();
-					resolve();
-				} else {
-					this.setSail(nextRotation);
-				}
-			}.bind(this));
-
-			this.sail.curAnimation.start();
-		}.bind(this)
-	);
-};
-
-var testNormaliseAngle = function() {
-	var i = -12345;
-	while(normaliseAngle(i) < 360 && normaliseAngle(i) >= 0) {
-		i++;
-		if(i == 12345) break;
-	}
-	console.log(i);
-};
-
-var normaliseAngle = function(deg, range) {
-	if(deg < 0) deg += range;
-	return Math.abs(deg % range);
-};
-
-var toRad = function(deg) {
-	return deg * Math.PI/180;
-};
-
-var fromRad = function(rad) {
-	return rad / (Math.PI/180);
-};
-
-var xIsInRange = function(x, a, b) {
-	return (x >= a && x <= b) || (x <= a && x >= b);
-};
-
-var angleDiffs = function (a, b, range) {
-	var direction = a < b ? -1 : 1;
-	var inner = (b - a);
-	var outer = (direction * range) + inner;
-	return [inner, outer].sort(function(a, b) {
-		if(Math.abs(a) > Math.abs(b)) return 1;
-		else if(Math.abs(b) > Math.abs(a)) return -1;
-		return 0;
+	Promise.all([ boat.turnBoat({ x : 10, y: 10 }) ]).then(function() {
+		console.log("working");
+	}).catch(function(a) {
+		console.log(a.message)
 	});
-};
 
-boat.setSail = function(deg) {
-	this.sail.rotation(deg);
-	this.checkSailSide();
-	this.parent.draw();
-};
+	document.getElementById('area').addEventListener('click', function(e) {
 
-boat.setBoat = function(deg) {
-	this.rotation(deg);
-	this.parent.draw();
-};
-
-boat.flipSail = function() {
-	this.sail.scale({ y: this.sail.scale().y * -1 });
-	this.parent.draw();
-};
-
-boat.checkSailSide = function() {
-	var rot = this.sail.rotation();
-	var scale = this.sail.scale().y;
-	if(rot < 90 && rot >= 0 && scale == -1) this.flipSail();
-	if(rot <=180 && rot > 90 && scale == 1) this.flipSail();
-};
-
-
-var turner = function(target, low, high, extras) {
-	return function(deg, speed, plusDirection) {
-			return new Promise(
-				function(resolve, reject) {
-
-					// stop current turning
-					if(target.turnAnim !== undefined && target.turnAnim.isRunning()) {
-						target.turnAnim.stop();
-					}
-
-					// find turn range
-					var range = high-low;
-
-					if(plusDirection === undefined) {
-						// find whether to add angle or take away angle
-						plusDirection = angleDiffs(normaliseAngle(target.rotation(), range), deg, high-low)[0] > 0;
-					}
-
-					target.turnAnim = new kinetic.Animation(function(frame) {
-
-						// find this frames rotation
-						var curRotation = normaliseAngle(target.rotation(), range),
-							delta = plusDirection ? speed : -speed,
-							nextRotation = normaliseAngle(curRotation + delta, range),
-							normDeg = normaliseAngle(deg, range);
-
-						// stop if reached target 
-						if(xIsInRange(normDeg, curRotation, nextRotation) && curRotation + delta == nextRotation) {
-							target.turnAnim.stop();
-							resolve();
-						}
-
-						if(extras.rotateFn !== undefined) {
-							extras.rotateFn(nextRotation);
-						} else {
-							// otherwhise perform turn and draw results to the parent
-							target.rotation(nextRotation);
-							target.parent.draw();
-						}
-
-						if(extras.callFns !== undefined) {
-							extras.callFns.forEach(function(e) {
-								e();
-							});
-						}
-
-					});
-
-					// start turning!
-					target.turnAnim.start();
-				}
-			);
-		};
-	};
+		var abs = boat.getRepresentation().getAbsolutePosition(),
+			dx = e.clientX - abs.x,
+			dy = abs.y - e.clientY;
 
 
 
-var UnitVector = function(metrics) {
-	this.x = metrics.x;
-	this.y = metrics.x;
-	this.deg = metrics.deg;
-	this.dist = metrics.dist;
+		Promise.all([boat.turnBoat({ x : dx, y: dy})]);
 
-	if(this.x !== undefined || this.y !== undefined) {
-		this.angle = this.getAngleFromCoord(this.x, this.y);
-		this.dist = Math.sqrt(this.x * this.x + this.y * this.y);
-	} else if(this.deg !== undefined) {
-		var coords = this.getCoordFromAngle(this.deg, this.dist);
-		this.x = coords.x;
-		this.y = coords.y;
-	} else {
-		console.log("Not enough info!!");
-	}
-
-};
-
-UnitVector.prototype.getUnit = function(){
-	return {
-		x: this.x / this.dist,
-		y: this.y / this.dist
-	};
-};
-
-UnitVector.prototype.getCoordFromAngle = function(deg, distance) {
-	deg = toRad(deg - 90);
-	return {
-		x: distance * Math.cos(deg),
-		y: distance * Math.sin(deg)
-	};
-};
-
-UnitVector.prototype.getAngleFromCoord = function(x, y) {
-	var angle = fromRad(Math.atan2(toRad(x), toRad(y)));
-	if(angle<0) angle += 360;
-	return angle;
-};
-
-var mover = function(defaults) {
-	return function(vector) {
-		return new Promise(function(resolve, reject) {
-
-			// cancel any currently running animation on the target
-			if(defaults.target.moveAnim !== undefined && defaults.target.moveAnim.isRunning()) {
-				defaults.target.moveAnim.stop();
-			}
-
-			// get unit vector and distance travelled
-			var unitVector = vector.getUnit()
-			var travelled = 0;
-
-			defaults.target.moveAnim = new kinetic.Animation(function(frame) {
-
-				// check the distance hasn't been travelled
-				if(xIsInRange(vector.dist, travelled, ++travelled)) {
-					defaults.target.moveAnim.stop();
-					resolve();
-				}
-
-				// move and draw the target by the unitVector 
-				defaults.target.move(unitVector);
-				defaults.target.parent.draw();
-
-			});
-
-			defaults.target.moveAnim.start();
-		});
-	};
-};
-
-boat.setRelPos = function(x, y) {
-	this.move({ x: x, y: y});
-	this.parent.draw();
-};
-
-boat.setAbsPos = function(x, y) {
-	this.position({ x: x, y: y});
-	this.parent.draw();
-};
-
-boat.moveOnTradjectory = function(deg, distance) {
-	deg = toRad(deg - 90);
-	var vector = {
-		x: distance * Math.cos(deg),
-		y: distance * Math.sin(deg)
-	};
-	this.setRelPos(vector.x, vector.y);
-};
-
-boat.animateMove = function(deg, distance) {
-	return new Promise(function(resolve, reject){
-		var travelled = 0;
-		this.movingAnimation = new kinetic.Animation(function(frame){
-			this.moveOnTradjectory(this.rotation(), 1);
-			if(++travelled == distance) {
-				this.movingAnimation.stop();
-			}
-		}.bind(this));
-
-		this.movingAnimation.start();
-	}.bind(this));
-};
-
-boat.goForward = function(){
-	var rot = this.rotation();
-	return this.animateMove(rot, 2000);
-};
-
-
-boat.pointToCoord = function(x, y) {
-	var angle = fromRad(Math.atan2(toRad(x), toRad(y)));
-	if(angle<0) angle += 360;
-	return fromRad(boat.turnTo(angle, 10));
-};
-
-boat.setOptimumSailAngle = function() {
-	var rot = this.getAbsoluteRotation();
-	if(rot >= 0 && rot < 180) {
-		this.setSail((180-rot)/2);
-	} else {
-		this.setSail((540-rot)/2);
-	}
-};
-
+	});
+});

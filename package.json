@@ -1,11 +1,11 @@
 {
   "name": "js-sailing-kit",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "js-sailing-kit",
-  "main": "gulpfile.js",
+  "main": "src/js-sailing-kit.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "make": "gulp"
+    "make": "./build.sh"
   },
   "repository": {
     "type": "git",
@@ -19,8 +19,11 @@
   "devDependencies": {
     "gulp": "~3.5.6",
     "gulp-browserify": "~0.5.0",
-    "coffeeify": "~0.6.0",
+    "gulp-clean": "~0.2.4",
+    "gulp-livereload": "^2.0.0",
+    "gulp-marked": "^0.2.0",
     "gulp-rename": "~1.2.0",
-    "gulp-clean": "~0.2.4"
+    "gulp-watch": "^0.6.5",
+    "kinetic": "^5.0.6"
   }
 }

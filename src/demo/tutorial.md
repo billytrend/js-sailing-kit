@@ -65,6 +65,21 @@ Here is a demo of my sailing boat animation library version 0.1. It is designed 
 		});
 	});
 
+<div class="water" id="ex-6"></div>
+
+Image apears below:
+
+<div id="eg-img"></div>
+
+*Initialise the sailing area and load a boat.*
+
+	var area = new JsSailingKit({
+		container: 'ex-1',
+		width: 200,
+		height: 150,
+	});
+
+	area.addBoat({ x: 100, y: 75 });
 
 
 <script type="text/javascript" src="demo.js"></script>

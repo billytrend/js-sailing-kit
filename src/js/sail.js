@@ -253,6 +253,7 @@ var hasUndefined = function(array) {
 	}, false);
 };
 
+
 var buildBoat = function(properties) {
 
 	boat = new kinetic.Group(properties);

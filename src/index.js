@@ -14,7 +14,8 @@ jsSailingKit.prototype.addBoat = function(properties) {
 		newBoat.loadAssets().then(function() {
 			this.boatsLayer.draw();
 			resolve(newBoat);
-		}.bind(this)).catch(function(e) {
+		}.bind(this))
+		.catch(function(e) {
 			console.log(e.message);
 		});
 

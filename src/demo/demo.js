@@ -1,12 +1,13 @@
-var JsSailingKit = require('../index.js');
+var JsSailingKit = require('../index.js'),
+	BoatOps = require('../js/boatOps.js');
 
 var area = new JsSailingKit({
 	container: 'ex-1',
 	width: 200,
-	height: 150,
+	height: 150
 });
 
-area.addBoat({ x: 100, y: 75 });
+area.addBoat({ x: 100, y: 75 }).catch(console.log);
 
 var area = new JsSailingKit({
 	container: 'ex-2',
@@ -64,3 +65,17 @@ area.addBoat({ x: 100, y: 75 }).then(function(boat) {
 		]);
 	});
 });
+
+var area = new JsSailingKit({
+	container: 'ex-6',
+	width: 200,
+	height: 150
+});
+
+area.addBoat({ x: 100, y: 75 })
+	.then(BoatOps.makeImage)
+	.then(function(image) {
+		console.log(image);
+		document.getElementById('eg-img').appendChild(image);
+	})
+	.catch(console.log);

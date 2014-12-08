@@ -1,5 +1,6 @@
 var JsSailingKit = require('../index.js'),
-	BoatOps = require('../js/boatOps.js');
+	BoatVisuals = require('../js/BoatVisuals.js'),
+	BoatMovements = require('../js/BoatMovements.js');
 
 var area = new JsSailingKit({
 	container: 'ex-1',
@@ -7,7 +8,10 @@ var area = new JsSailingKit({
 	height: 150
 });
 
-area.addBoat({ x: 100, y: 75 }).catch(console.log);
+area.addBoat({ x: 100, y: 75 }).then(function(boat) {
+	console.log("going");
+	BoatVisuals.showSternLine(boat);
+}).catch(console.log);
 
 var area = new JsSailingKit({
 	container: 'ex-2',
@@ -16,9 +20,9 @@ var area = new JsSailingKit({
 });
 
 area.addBoat({ x: 100, y: 75 }).then(function(boat) {
-	boat.turnBoat({ x : 150, y : 150 }).then(function() {
+	BoatMovements.turnBoat(boat, { x : 150, y : 150 }).then(function() {
 		boat.sail.correctSail();
-	});
+	}).catch(console.log);
 });
 
 var area = new JsSailingKit({
@@ -73,7 +77,7 @@ var area = new JsSailingKit({
 });
 
 area.addBoat({ x: 100, y: 75 })
-	.then(BoatOps.makeImage)
+	.then(BoatVisuals.makeImage)
 	.then(function(image) {
 		console.log(image);
 		document.getElementById('eg-img').appendChild(image);

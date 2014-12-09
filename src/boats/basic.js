@@ -21,6 +21,7 @@ var data = {
 var state = function () {
 	this.sail = undefined;
 	this.hull = undefined;
+	this.context = undefined;
 }
 
 var api = {
@@ -51,8 +52,8 @@ var api = {
 		return boatState;
 	},
 
-	// boat{} => boatState{}
-	build: function (boat) {
+	// boat{} => context{} => boatState{}
+	build: function (boat, context) {
 
 		var hullImage = new Image(),
 			sailImage = new Image(),
@@ -81,6 +82,7 @@ var api = {
 		var boatState = new state();
 		boatState.hull = hullImage;
 		boatState.sail = sailImage;
+		boatState.context = context;
 
 		return boatState;
 	},
@@ -112,8 +114,27 @@ var api = {
 	// boatState{} => double(1,-1)
 	getSailDegrees: function(boatState) {
 		return [this.getSailDegree(boatState.sail)];
-	}
+	},
 
+	// boatState{} => double (0, 1) => boatState{}
+	turnBoat: function(boatState, turn) {
+		var fullRotation = 360;
+		boatState.boat.rotation(turn * fullRotation);
+	},
+
+	// boatState{} => double (-1, 1) => boatState{}
+	turnBoatRel: function(boatState, turn) {
+		var current = this.getBoatRotation(boatState);
+		var next = current + turn;
+		this.turnBoat(boatState, turn);
+	},
+
+	// boatState{} => double (-1, 1)
+	getBoatRotation: function(boatState) {
+		var rot = boatState.boat.rotation();
+		if(rot < 0) return (360 + rot) / 360;
+		return rot / 360;
+	}
 }
 
 
